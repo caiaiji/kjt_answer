@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>源码守护者 - 题解查询工具</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:#f0f2f5;color:#1a1a2e;min-height:100vh}
+
+/* ====== 指南弹窗 ====== */
+.guide-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:500;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(6px);opacity:0;animation:fadeIn .4s ease forwards}
+@keyframes fadeIn{to{opacity:1}}
+.guide-card{background:#fff;border-radius:20px;max-width:640px;width:92%;max-height:85vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.25);animation:slideUp .5s ease}
+@keyframes slideUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+.guide-header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:28px 32px;border-radius:20px 20px 0 0;text-align:center}
+.guide-header h2{color:#fff;font-size:22px;font-weight:800;margin-bottom:6px}
+.guide-header p{color:rgba(255,255,255,.8);font-size:14px}
+.guide-body{padding:28px 32px}
+.guide-section{margin-bottom:20px}
+.guide-section h3{font-size:15px;font-weight:700;color:#333;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.guide-section h3 .icon{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:#fff;flex-shrink:0}
+.guide-section p,.guide-section li{font-size:13.5px;line-height:1.9;color:#555}
+.guide-section ul{padding-left:20px}
+.guide-section li{margin-bottom:3px}
+.guide-section kbd{background:#f0f0f0;border:1px solid #ddd;border-radius:4px;padding:1px 6px;font-size:12px;font-family:inherit;color:#333}
+.guide-tip{background:linear-gradient(135deg,#f6f0ff 0%,#eff6ff 100%);border-left:4px solid #667eea;padding:14px 18px;border-radius:0 10px 10px 0;margin:16px 0}
+.guide-tip p{color:#444!important;font-size:13px!important}
+.guide-close-btn{display:block;width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;font-size:16px;font-weight:700;cursor:pointer;transition:transform .2s,box-shadow .2s;margin-top:8px}
+.guide-close-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(102,126,234,.4)}
+.guide-footer{text-align:center;padding:16px;font-size:12px;color:#999}
+
+/* ====== 主页面 ====== */
+.header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:24px 32px;box-shadow:0 4px 20px rgba(102,126,234,.4);position:sticky;top:0;z-index:100}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.header h1{font-size:24px;font-weight:700;letter-spacing:1px}
+.header-top-right{display:flex;align-items:center;gap:12px}
+.help-btn{padding:5px 14px;border-radius:16px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:#fff;font-size:13px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:5px}
+.help-btn:hover{background:rgba(255,255,255,.3)}
+.header-stats{display:flex;gap:16px;font-size:13px;opacity:.9}
+.stat-badge{background:rgba(255,255,255,.2);padding:4px 12px;border-radius:20px}
+.search-bar{display:flex;gap:12px;align-items:center}
+.search-input-wrap{flex:1;position:relative}
+.search-input-wrap input{width:100%;padding:12px 16px 12px 44px;border:none;border-radius:12px;font-size:15px;background:rgba(255,255,255,.95);color:#333;outline:none}
+.search-input-wrap input:focus{box-shadow:0 0 0 3px rgba(255,255,255,.4)}
+.search-input-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#999}
+.filters{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center}
+.filter-label{font-size:13px;color:rgba(255,255,255,.8);margin-right:2px}
+.filter-select{padding:6px 12px;border:1px solid rgba(255,255,255,.3);border-radius:8px;background:rgba(255,255,255,.15);color:#fff;font-size:13px;cursor:pointer;outline:none}
+.filter-select:hover{background:rgba(255,255,255,.25)}
+.filter-select option{background:#fff;color:#333}
+.tag-filters{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.tag-btn{padding:3px 10px;border-radius:14px;border:1px solid rgba(255,255,255,.3);background:transparent;color:rgba(255,255,255,.85);font-size:12px;cursor:pointer;transition:all .2s}
+.tag-btn:hover{background:rgba(255,255,255,.2)}
+.tag-btn.active{background:rgba(255,255,255,.35);color:#fff;border-color:#fff}
+.results-info{padding:16px 32px;font-size:14px;color:#666;display:flex;justify-content:space-between;align-items:center}
+.problem-list{max-width:1200px;margin:0 auto;padding:0 32px 32px;display:flex;flex-direction:column;gap:8px}
+.problem-item{display:grid;grid-template-columns:70px 1fr auto;align-items:center;padding:14px 20px;background:#fff;border-radius:12px;cursor:pointer;transition:all .2s;border:1px solid transparent}
+.problem-item:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.08);border-color:#667eea}
+.problem-id{font-size:13px;color:#888;font-weight:600}
+.problem-main{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.problem-title{font-size:15px;font-weight:600;color:#1a1a2e}
+.problem-tags{display:flex;gap:4px;flex-wrap:wrap}
+.problem-tag{font-size:11px;padding:2px 8px;border-radius:10px;background:#f0f0ff;color:#5b6abf}
+.problem-right{display:flex;align-items:center;gap:12px}
+.diff-badge{font-size:12px;padding:3px 10px;border-radius:10px;font-weight:600;color:#fff}
+.diff-\u5165\u95e8{background:#52c41a}.diff-\u666e\u53ca-{background:#1890ff}.diff-\u666e\u53ca/\u63d0\u9ad8-{background:#13c2c2}.diff-\u666e\u53ca+/\u63d0\u9ad8{background:#722ed1}.diff-\u63d0\u9ad8+/\u7701\u9009-{background:#eb2f96}.diff-\u7701\u9009/NOI-{background:#f5222d}.diff-NOI/CTSC{background:#8b0000}.diff-\u672a\u5206\u7c7b{background:#999}
+.code-icon{font-size:18px;line-height:1}.no-code-icon{color:#ddd}
+.pass-rate{font-size:12px;color:#888;min-width:42px;text-align:right}
+.pagination{display:flex;justify-content:center;align-items:center;gap:6px;padding:24px 0}
+.page-btn{width:36px;height:36px;border:1px solid #ddd;border-radius:8px;background:#fff;color:#555;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.page-btn:hover{border-color:#667eea;color:#667eea}
+.page-btn.active{background:#667eea;color:#fff;border-color:#667eea}
+.page-btn:disabled{opacity:.4;cursor:not-allowed}
+.page-info{font-size:13px;color:#888;margin:0 8px}
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:200;justify-content:center;align-items:flex-start;padding:40px 20px;overflow-y:auto;backdrop-filter:blur(4px)}
+.modal-overlay.active{display:flex}
+.modal{background:#fff;border-radius:16px;max-width:900px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.2);animation:modalIn .3s ease;overflow:hidden}
+@keyframes modalIn{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.modal-header{padding:20px 24px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;display:flex;justify-content:space-between;align-items:center}
+.modal-header h2{font-size:20px;font-weight:700}
+.modal-close{width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:rgba(255,255,255,.35)}
+.modal-meta{display:flex;gap:10px;align-items:center;padding:12px 24px;background:#f8f8fc;border-bottom:1px solid #eee;flex-wrap:wrap}
+.modal-meta-item{font-size:13px;color:#666}.modal-meta-item strong{color:#333}
+.modal-body{padding:24px}
+.modal-section{margin-bottom:20px}
+.modal-section-title{font-size:15px;font-weight:700;color:#333;margin-bottom:8px;padding-left:10px;border-left:3px solid #667eea}
+.modal-section-content{font-size:14px;line-height:1.8;color:#444}
+.sample-block{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.sample-box{background:#f6f8fa;border-radius:10px;padding:14px;border:1px solid #e8e8e8}
+.sample-box-label{font-size:12px;font-weight:700;color:#888;margin-bottom:6px;letter-spacing:1px}
+.sample-box pre{font-family:"Cascadia Code","Fira Code","Consolas",monospace;font-size:13px;color:#24292e;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+.code-section{background:#1e1e2e;border-radius:12px;overflow:hidden;border:1px solid #313244}
+.code-header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#181825;color:#cdd6f4;font-size:13px}
+.code-header .code-lang{color:#a6e3a1;font-weight:600}
+.code-header .copy-btn{padding:4px 12px;border-radius:6px;border:1px solid #45475a;background:#313244;color:#cdd6f4;font-size:12px;cursor:pointer;transition:all .2s}
+.code-header .copy-btn:hover{background:#45475a}
+.code-body{padding:16px;overflow-x:auto}
+.code-body pre{font-family:"Cascadia Code","Fira Code","Consolas",monospace;font-size:13px;line-height:1.7;color:#cdd6f4;margin:0}
+.no-code-hint{text-align:center;padding:32px;color:#999;font-size:14px;background:#f8f9fa;border-radius:12px;border:1px dashed #ddd}
+.no-code-hint svg{margin-bottom:8px;opacity:.4}
+.empty-state{text-align:center;padding:60px 20px;color:#999}
+.nav-arrow{display:inline-flex;align-items:center;justify-content:center;padding:8px 16px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:13px;cursor:pointer}
+.nav-arrow:hover{background:rgba(255,255,255,.25)}
+.nav-arrow:disabled{opacity:.3;cursor:not-allowed}
+@media(max-width:768px){.header{padding:16px}.header h1{font-size:18px}.problem-list{padding:0 16px 16px}.problem-item{grid-template-columns:60px 1fr;gap:8px;padding:12px 14px}.problem-right{grid-column:1/-1;justify-content:flex-start}.sample-block{grid-template-columns:1fr}.guide-card{width:96%}.guide-body{padding:20px}}
+::-webkit-scrollbar{width:8px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#c4c4c4;border-radius:4px}::-webkit-scrollbar-thumb:hover{background:#999}
+</style>
+</head>
+<body>
+
+<!-- ====== 使用指南弹窗（首次打开显示） ====== -->
+<div class="guide-overlay" id="guideOverlay">
+  <div class="guide-card">
+    <div class="guide-header">
+      <h2>源码守护者 - 题解查询工具</h2>
+      <p>快速搜索 2855 道编程学院题目的参考代码</p>
+    </div>
+    <div class="guide-body">
+      <div class="guide-section">
+        <h3><span class="icon" style="background:#52c41a">1</span>这是什么？</h3>
+        <p>收录了科技兔编程学院全部 2855 道题目的题面和源码守护者题目的题解代码（C++），自取。</p>
+      </div>
+      <div class="guide-section">
+        <h3><span class="icon" style="background:#1890ff">2</span>如何搜索题目？</h3>
+        <ul>
+          <li>在顶部搜索框输入 <b>题号</b>（如 <kbd>1001</kbd>）、<b>题目名称</b>（如 <kbd>排序</kbd>）或 <b>描述关键词</b></li>
+          <li>支持按 <b>难度</b> 筛选：入门 / 普及- / 普及/提高- / 普及+/提高 / 提高+/省选- / 省选/NOI-</li>
+          <li>支持按 <b>标签</b> 筛选：点击标签栏的标签可多选</li>
+          <li>支持按 <b>通过率 / 提交数</b> 排序</li>
+          <li>用 <b>代码筛选</b> 只看有参考代码的题目</li>
+        </ul>
+      </div>
+      <div class="guide-section">
+        <h3><span class="icon" style="background:#722ed1">3</span>如何查看和复制代码？</h3>
+        <ul>
+          <li>点击任意题目打开详情弹窗</li>
+          <li>弹窗底部显示 <b>参考代码</b>（暗色代码框）</li>
+          <li>点击右上角 <b>「复制代码」</b> 按钮一键复制</li>
+          <li>弹窗打开后可用 <kbd>&larr;</kbd> <kbd>&rarr;</kbd> 键切换上/下一题</li>
+          <li>按 <kbd>Esc</kbd> 关闭弹窗</li>
+        </ul>
+      </div>
+      <div class="guide-tip">
+        <p><b>小提示：</b>按 <kbd>/</kbd> 键可快速聚焦到搜索框，无需鼠标点击。列表中有高亮齿轮图标（&#9881;）的题目表示已有参考代码。</p>
+      </div>
+      <div class="guide-section">
+        <h3><span class="icon" style="background:#eb2f96">4</span>代码说明</h3>
+        <p>所有题解代码均为 C++，覆盖全部 2855 道题目，自取。部分题目代码持续补充中。</p>
+      </div>
+
+    </div>
+    <div class="guide-footer">
+      <button class="guide-close-btn" onclick="closeGuide()">我知道了，开始使用</button>
+      <p style="margin-top:10px">制作人：菜菜鸡<br><br>再次查看指南：点击页面右上角「使用指南」按钮</p>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 主页面 ====== -->
+<div class="header">
+  <div class="header-top">
+    <h1>源码守护者 - 题解查询</h1>
+    <div class="header-top-right">
+      <button class="help-btn" onclick="showGuide()">&#9432; 使用指南</button>
+      <div class="header-stats">
+        <span class="stat-badge" id="totalBadge">共 2855 题</span>
+        <span class="stat-badge" id="codeBadge">有代码 -- 题</span>
+        <span class="stat-badge" id="shownBadge">显示 2855 题</span>
+      </div>
+    </div>
+  </div>
+  <div class="search-bar">
+    <div class="search-input-wrap">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="searchInput" placeholder="搜索题号、题目名称、描述..." autocomplete="off">
+    </div>
+  </div>
+  <div class="filters">
+    <span class="filter-label">难度:</span>
+    <select class="filter-select" id="diffFilter"><option value="">全部难度</option></select>
+    <span class="filter-label" style="margin-left:8px">排序:</span>
+    <select class="filter-select" id="sortSelect">
+      <option value="id_asc">题号升序</option><option value="id_desc">题号降序</option>
+      <option value="pass_asc">通过率升序</option><option value="pass_desc">通过率降序</option>
+      <option value="submit_desc">提交数降序</option>
+    </select>
+    <span class="filter-label" style="margin-left:8px">每页:</span>
+    <select class="filter-select" id="pageSizeSelect">
+      <option value="30">30</option><option value="50" selected>50</option><option value="100">100</option>
+    </select>
+    <span class="filter-label" style="margin-left:8px">代码:</span>
+    <select class="filter-select" id="codeFilter">
+      <option value="">全部</option><option value="yes" selected>有代码</option><option value="no">无代码</option>
+    </select>
+  </div>
+  <div class="tag-filters" id="tagFilters"></div>
+</div>
+
+<div class="results-info">
+  <span id="resultText">共 2855 道题目</span>
+  <div id="navBtns" style="display:none">
+    <button class="nav-arrow" id="prevProblem" onclick="navigateProblem(-1)">&#8592; 上一题</button>
+    <button class="nav-arrow" id="nextProblem" onclick="navigateProblem(1)">下一题 &#8594;</button>
+  </div>
+</div>
+
+<div class="problem-list" id="problemList"><div style="text-align:center;padding:60px;color:#999">加载中...</div></div>
+<div class="pagination" id="pagination"></div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">题目详情</h2>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-meta" id="modalMeta"></div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script src="problems_data.js"></script>
+<script>
+(function(){
+
+/* ====== 指南弹窗控制 ====== */
+// 每次打开都显示指南
+window.closeGuide=function(){document.getElementById('guideOverlay').style.display='none';};
+window.showGuide=function(){document.getElementById('guideOverlay').style.display='flex';};
+
+/* ====== 主逻辑 ====== */
+var currentPage=1,pageSize=50,filtered=[],currentIdx=-1;
+
+function stripHTML(h){if(!h)return'';var t=document.createElement('div');t.innerHTML=h;return t.textContent||t.innerText||''}
+function renderLatex(text){
+  if(!text)return'';
+  var e=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return e.replace(/\$\$([^$]+)\$\$/g,function(_,f){try{return katex.renderToString(f,{throwOnError:false,displayMode:true})}catch(x){return _}})
+    .replace(/\$([^$]+)\$/g,function(_,f){try{return katex.renderToString(f,{throwOnError:false,displayMode:false})}catch(x){return _}});
+}
+function esc(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function diffClass(n){
+  var m={'入门':'diff-入门','普及-':'diff-普及-','普及/提高-':'diff-普及/提高-','普及+/提高':'diff-普及+/提高','提高+/省选-':'diff-提高+/省选-','省选/NOI-':'diff-省选/NOI-','NOI/CTSC':'diff-NOI/CTSC'};
+  return m[n]||'diff-未分类';
+}
+
+// 统计有代码数量
+var codeCount=0;
+if(typeof PROBLEMS!=='undefined'){
+  codeCount=PROBLEMS.filter(function(p){return p.code&&p.code.trim()}).length;
+  document.getElementById('codeBadge').textContent='有代码 '+codeCount+' 题';
+  document.getElementById('totalBadge').textContent='共 '+PROBLEMS.length+' 题';
+}
+
+function initDiffFilter(){
+  var sel=document.getElementById('diffFilter'),s={};
+  PROBLEMS.forEach(function(p){var d=p.diff_name||'';if(d)s[d]=true;});
+  var order=['入门','普及-','普及/提高-','普及+/提高','提高+/省选-','省选/NOI-','NOI/CTSC'];
+  order.forEach(function(d){if(s[d]){var o=document.createElement('option');o.value=d;o.textContent=d;sel.appendChild(o)}});
+  var others=Object.keys(s).filter(function(d){return order.indexOf(d)===-1}).sort();
+  others.forEach(function(d){var o=document.createElement('option');o.value=d;o.textContent=d;sel.appendChild(o)});
+}
+
+function initTagFilters(){
+  var c=document.getElementById('tagFilters'),tags=Object.entries(TAG_STATS).sort(function(a,b){return b[1]-a[1]}).slice(0,20);
+  tags.forEach(function(t){var b=document.createElement('button');b.className='tag-btn';b.textContent=t[0];b.dataset.tag=t[0];
+    b.onclick=function(){b.classList.toggle('active');applyFilters()};c.appendChild(b)});
+}
+
+function applyFilters(){
+  var kw=document.getElementById('searchInput').value.trim().toLowerCase();
+  var dv=document.getElementById('diffFilter').value;
+  var sv=document.getElementById('sortSelect').value;
+  var cv=document.getElementById('codeFilter').value;
+  var at=[];document.querySelectorAll('.tag-btn.active').forEach(function(b){at.push(b.dataset.tag)});
+
+  filtered=PROBLEMS.filter(function(p){
+    if(kw){var id=String(p.pno||p.pid||''),t=(p.title||'').toLowerCase(),d=stripHTML(p.description||'').toLowerCase();
+      if(id.indexOf(kw)===-1&&t.indexOf(kw)===-1&&d.indexOf(kw)===-1)return false}
+    if(dv&&p.diff_name!==dv)return false;
+    if(cv==='yes'&&!p.code)return false;
+    if(cv==='no'&&p.code)return false;
+    if(at.length){var pt=(p.tag||'').split(',').map(function(t){return t.trim()}).filter(Boolean);
+      if(!at.some(function(a){return pt.indexOf(a)!==-1}))return false}
+    return true;
+  });
+  switch(sv){
+    case'id_asc':filtered.sort(function(a,b){return(a.pid||0)-(b.pid||0)});break;
+    case'id_desc':filtered.sort(function(a,b){return(b.pid||0)-(a.pid||0)});break;
+    case'pass_asc':filtered.sort(function(a,b){return(a.problem_pass_rate||0)-(b.problem_pass_rate||0)});break;
+    case'pass_desc':filtered.sort(function(a,b){return(b.problem_pass_rate||0)-(a.problem_pass_rate||0)});break;
+    case'submit_desc':filtered.sort(function(a,b){return(b.submit||0)-(a.submit||0)});break;
+  }
+  currentPage=1;renderList();
+}
+
+function renderList(){
+  var list=document.getElementById('problemList'),total=filtered.length;
+  var tp=Math.max(1,Math.ceil(total/pageSize));if(currentPage>tp)currentPage=tp;
+  var start=(currentPage-1)*pageSize,pp=filtered.slice(start,start+pageSize);
+  document.getElementById('shownBadge').textContent='显示 '+total+' 题';
+  document.getElementById('resultText').textContent='共 '+total+' 道题目，第 '+currentPage+'/'+tp+' 页';
+  if(!pp.length){list.innerHTML='<div class="empty-state">没有找到匹配的题目</div>';document.getElementById('pagination').innerHTML='';return}
+  var h='';
+  pp.forEach(function(p,i){
+    var gi=start+i,pid=p.pno||p.pid||'';
+    var title=esc(p.title||'无题名'),dn=p.diff_name||'未分类',pr=p.problem_pass_rate||0;
+    var tags=(p.tag||'').split(',').map(function(t){return t.trim()}).filter(Boolean).slice(0,3);
+    var tagH=tags.map(function(t){return'<span class="problem-tag">'+esc(t)+'</span>'}).join('');
+    var hasCode=p.code&&p.code.trim();
+    var codeIcon=hasCode?'<span class="code-icon" title="有参考代码">&#9881;</span>':'<span class="code-icon no-code-icon" title="暂无代码">&#9881;</span>';
+    h+='<div class="problem-item" onclick="openModal('+gi+')">'
+      +'<span class="problem-id">#'+pid+'</span>'
+      +'<div class="problem-main"><span class="problem-title">'+title+'</span><div class="problem-tags">'+tagH+'</div></div>'
+      +'<div class="problem-right">'+codeIcon+'<span class="diff-badge '+diffClass(dn)+'">'+esc(dn)+'</span><span class="pass-rate">'+pr+'%</span></div></div>';
+  });
+  list.innerHTML=h;renderPagination(tp);
+}
+
+function renderPagination(tp){
+  var pag=document.getElementById('pagination');if(tp<=1){pag.innerHTML='';return}
+  var h='<button class="page-btn" onclick="goPage('+(currentPage-1)+')" '+(currentPage===1?'disabled':'')+'>&laquo;</button>';
+  var r=getPageRange(currentPage,tp);
+  r.forEach(function(p){if(p==='...')h+='<span class="page-info">...</span>';else h+='<button class="page-btn '+(p===currentPage?'active':'')+'" onclick="goPage('+p+')">'+p+'</button>'});
+  h+='<button class="page-btn" onclick="goPage('+(currentPage+1)+')" '+(currentPage===tp?'disabled':'')+'>&raquo;</button>';
+  pag.innerHTML=h;
+}
+function getPageRange(c,t){
+  if(t<=7)return Array.from({length:t},function(_,i){return i+1});
+  var p=[1];if(c>4)p.push('...');for(var i=Math.max(2,c-1);i<=Math.min(t-1,c+1);i++)p.push(i);
+  if(c<t-3)p.push('...');p.push(t);return p;
+}
+
+window.openModal=function(idx){
+  currentIdx=idx;var p=filtered[idx];if(!p)return;
+  document.getElementById('modalTitle').textContent='#'+(p.pno||p.pid)+' '+(p.title||'无题名');
+  var dn=p.diff_name||'未分类';
+  var tags=(p.tag||'').split(',').map(function(t){return t.trim()}).filter(Boolean);
+  var mh='<span class="diff-badge '+diffClass(dn)+'">'+esc(dn)+'</span>'
+    +'<span class="modal-meta-item">通过率: <strong>'+(p.problem_pass_rate||0)+'%</strong></span>'
+    +'<span class="modal-meta-item">提交: <strong>'+(p.submit||0)+'</strong></span>'
+    +'<span class="modal-meta-item">AC: <strong>'+(p.accepted||0)+'</strong></span>'
+    +'<span class="modal-meta-item">时间: <strong>'+(p.time_limit||'-')+'s</strong></span>'
+    +'<span class="modal-meta-item">内存: <strong>'+(p.memory_limit||'-')+'MB</strong></span>';
+  if(p.source)mh+='<span class="modal-meta-item">来源: <strong>'+esc(p.source)+'</strong></span>';
+  if(tags.length)mh+='<span class="modal-meta-item" style="margin-left:auto">标签: '+tags.map(function(t){return'<span class="problem-tag">'+esc(t)+'</span>'}).join(' ')+'</span>';
+  document.getElementById('modalMeta').innerHTML=mh;
+
+  var desc=stripHTML(p.description),inp=stripHTML(p.input),out=stripHTML(p.output),hint=stripHTML(p.hint);
+  var bh='';
+  if(desc)bh+='<div class="modal-section"><div class="modal-section-title">题目描述</div><div class="modal-section-content">'+renderLatex(desc)+'</div></div>';
+  if(inp)bh+='<div class="modal-section"><div class="modal-section-title">输入格式</div><div class="modal-section-content">'+renderLatex(inp)+'</div></div>';
+  if(out)bh+='<div class="modal-section"><div class="modal-section-title">输出格式</div><div class="modal-section-content">'+renderLatex(out)+'</div></div>';
+  if(p.sample_input||p.sample_output){
+    bh+='<div class="modal-section"><div class="modal-section-title">样例</div><div class="sample-block">'
+      +'<div class="sample-box"><div class="sample-box-label">输入</div><pre>'+esc(p.sample_input||'无')+'</pre></div>'
+      +'<div class="sample-box"><div class="sample-box-label">输出</div><pre>'+esc(p.sample_output||'无')+'</pre></div></div></div>';
+  }
+  if(hint)bh+='<div class="modal-section"><div class="modal-section-title">提示</div><div class="modal-section-content">'+renderLatex(hint)+'</div></div>';
+
+  // 参考代码
+  bh+='<div class="modal-section"><div class="modal-section-title">参考代码</div>';
+  if(p.code&&p.code.trim()){
+    bh+='<div class="code-section"><div class="code-header"><span class="code-lang">C++</span>'
+      +'<button class="copy-btn" onclick="copyCode()">复制代码</button></div>'
+      +'<div class="code-body"><pre id="codeContent">'+esc(p.code)+'</pre></div></div>';
+  }else{
+    bh+='<div class="no-code-hint"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/></svg><div>暂无参考代码</div><div style="font-size:12px;color:#bbb;margin-top:4px">该题目的代码尚未生成</div></div>';
+  }
+  bh+='</div>';
+
+  document.getElementById('modalBody').innerHTML=bh;
+  document.getElementById('navBtns').style.display='flex';
+  document.getElementById('prevProblem').disabled=idx<=0;
+  document.getElementById('nextProblem').disabled=idx>=filtered.length-1;
+  document.getElementById('modalOverlay').classList.add('active');
+  document.body.style.overflow='hidden';
+};
+
+window.copyCode=function(){
+  var code=document.getElementById('codeContent');
+  if(code){navigator.clipboard.writeText(code.textContent).then(function(){
+    var btn=document.querySelector('.copy-btn');btn.textContent='已复制!';setTimeout(function(){btn.textContent='复制代码'},1500);
+  })}
+};
+
+window.closeModal=function(){document.getElementById('modalOverlay').classList.remove('active');document.body.style.overflow=''};
+window.navigateProblem=function(d){var n=currentIdx+d;if(n>=0&&n<filtered.length)openModal(n)};
+window.goPage=function(p){currentPage=p;renderList();window.scrollTo({top:200,behavior:'smooth'})};
+
+var st;
+document.getElementById('searchInput').addEventListener('input',function(){clearTimeout(st);st=setTimeout(applyFilters,200)});
+document.getElementById('diffFilter').addEventListener('change',applyFilters);
+document.getElementById('sortSelect').addEventListener('change',applyFilters);
+document.getElementById('codeFilter').addEventListener('change',applyFilters);
+document.getElementById('pageSizeSelect').addEventListener('change',function(){pageSize=parseInt(this.value);currentPage=1;renderList()});
+document.getElementById('modalOverlay').addEventListener('click',function(e){if(e.target===this)closeModal()});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){closeModal();closeGuide()}
+  if(document.getElementById('modalOverlay').classList.contains('active')){
+    if(e.key==='ArrowLeft')navigateProblem(-1);if(e.key==='ArrowRight')navigateProblem(1);
+  }
+  if(e.key==='/'&&document.activeElement.tagName!=='INPUT'){e.preventDefault();document.getElementById('searchInput').focus()}
+});
+
+initDiffFilter();initTagFilters();applyFilters();
+})();
+</script>
+</body>
+</html>
